@@ -32,16 +32,27 @@ io.on('connection', (socket) => {
   // ルームにいるユーザーに電話をかける
   socket.on('callUser', (data) => {
     console.log(`received call user from ${data.from}`)
-    socket.broadcast
-      .to(room)
-      .emit('callUser', { signal: data.signal, from: data.from })
+    socket.broadcast.to(room).emit('callUser', { from: data.from })
   })
 
   socket.on('answerCall', (data) => {
     console.log(`received answer call from ${data.from}`)
     socket.broadcast
       .to(room)
-      .emit('callAccepted', { signal: data.signal, from: data.from })
+      .emit('answerCall', { signal: data.signal, from: data.from })
+  })
+
+  socket.on('acceptCall', (data) => {
+    console.log(`received answer call from ${data.from}`)
+    socket.broadcast
+      .to(room)
+      .emit('acceptCall', { signal: data.signal, from: data.from })
+  })
+
+  socket.on('icecandidate', (data) => {
+    socket.broadcast
+      .to(room)
+      .emit('icecandidate', { signal: data.signal, from: data.from })
   })
 })
 

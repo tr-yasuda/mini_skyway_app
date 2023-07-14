@@ -1,8 +1,8 @@
 'use client'
 
 import React from 'react'
-import { Container, Text } from '@mantine/core'
-import { useSearchParams } from 'next/navigation'
+import { Button, Container, Text } from '@mantine/core'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { io } from 'socket.io-client'
 
 const socket = io('http://localhost:5500')
@@ -12,109 +12,136 @@ export default function Calls() {
     () => new RTCPeerConnection({ iceServers: [] }),
     []
   )
+  const router = useRouter()
 
   const myVideo: React.LegacyRef<HTMLVideoElement> = React.useRef(null)
   const userVideo: React.LegacyRef<HTMLVideoElement> = React.useRef(null)
 
   React.useEffect(() => {
-    // peer 接続準備
-
     // クエリなかったらトップページに戻す
     if (!roomName) {
-      window.location.href = '/'
+      router.push('/')
+      peer.close()
     }
+    // メディア情報取得
+    navigator.mediaDevices
+      .getUserMedia({ video: true, audio: true })
+      .then((stream) => {
+        // videoフレームに出力
+        ;(myVideo.current as HTMLVideoElement).srcObject = stream
+        // trackをpeerにアタッチ
+        stream.getTracks().forEach((track) => {
+          peer.addTrack(track, stream)
+        })
+      })
+      .catch((error) => {
+        console.error(`error: cannot get local video stream ${error}`)
+      })
+    console.log('attached local video')
 
     // サーバーに接続したことを確認
     socket.on('connect', () => {
       // サーバーのルームに参加
       socket.emit('join', roomName)
       console.log(`joined room: ${roomName}`, socket.id)
-      // メディア情報取得
-      navigator.mediaDevices
-        .getUserMedia({ video: true, audio: true })
-        .then((stream) => {
-          // videoフレームに出力
-          ;(myVideo.current as HTMLVideoElement).srcObject = stream
-          // trackをpeerにアタッチ
-          stream.getTracks().forEach((track) => {
-            peer.addTrack(track, stream)
-          })
-        })
-        .catch((error) => {
-          console.error(`error: cannot get local video stream ${error}`)
-        })
-      console.log('attached local video')
-      // peer create offer
-      peer
-        .createOffer()
-        .then((session) => {
-          // ローカルセッションを peer に読み込ませる。
-          console.log('created local sdp')
-          return peer.setLocalDescription(session)
-        })
-        .catch((error) => {
-          console.error(`error: cannot set local description ${error}`)
-        })
-        .then(() => {
-          socket.emit('callUser', {
-            signal: peer.localDescription,
-            from: socket.id
-          })
-          console.log('sent peer call user.')
-        })
-        .catch((error) => {
-          console.error(`error: cannot create offer ${error}`)
-        })
+
+      // まずは電話をかける。(sdpなし)
+      socket.emit('callUser', { from: socket.id })
 
       // 電話してきたユーザーの情報を取得
+      socket.on('callUser', (data: { from: string }) => {
+        console.log('received call user signal', data)
+        peer
+          .createOffer()
+          .then((offer) => {
+            return peer.setLocalDescription(offer)
+          })
+          .catch((error) => {
+            console.error(`cannot create offer, ${error}`)
+          })
+          .then(() => {
+            socket.emit('answerCall', {
+              signal: peer.localDescription,
+              from: socket.id
+            })
+          })
+      })
+
       socket.on(
-        'callUser',
+        'answerCall',
         (data: { signal: RTCSessionDescription; from: string }) => {
-          console.log('received call user signal')
+          console.log('received answer call', data)
           peer
             .setRemoteDescription(data.signal)
             .then(() => {
-              console.log('success set remote description')
               peer
                 .createAnswer()
                 .then((answer) => {
-                  socket.emit('answerCall', {
-                    signal: answer,
-                    from: socket.id
-                  })
-                  console.log('send answer call')
+                  peer
+                    .setLocalDescription(answer)
+                    .then(() => {
+                      console.log('create answer', answer)
+                      socket.emit('acceptCall', {
+                        signal: answer,
+                        from: socket.id
+                      })
+                    })
+                    .catch((error) => {
+                      console.error(`cannot set local description, ${error}`)
+                    })
                 })
                 .catch((error) => {
-                  console.error(`error : cannot send answer ${error}`)
+                  console.error(`cannot create answer ${error}`)
                 })
             })
             .catch((error) => {
-              console.error(`error : cannot set remote description ${error}`)
+              console.error(`cannot create answer, ${error}`)
             })
         }
       )
 
-      // 電話を受け取ったユーザーからシグナルを受け取る
       socket.on(
-        'callAccepted',
-        (data: { signal: RTCSessionDescription; from: string }) => {
-          console.log('call accepted')
+        'acceptCall',
+        (data: { signal: RTCSessionDescriptionInit; from: string }) => {
+          console.log('received accept call', data)
           peer
             .setRemoteDescription(data.signal)
             .then(() => {
-              console.log('success set remote description')
+              console.log('connect successfully')
             })
             .catch((error) => {
-              console.error(`error : cannot set remote description ${error}`)
+              console.error(`cannot set remote description, ${error}`)
             })
         }
       )
-    })
 
-    peer.ontrack = (e) => {
-      ;(userVideo.current as HTMLVideoElement).srcObject = e.streams[0]
-    }
-  }, [peer, roomName])
+      peer.onicecandidate = (event) => {
+        if (event.candidate) {
+          socket.emit('icecandidate', {
+            signal: event.candidate,
+            from: socket.id
+          })
+        }
+      }
+
+      socket.on(
+        'icecandidate',
+        async (data: { signal: RTCIceCandidate; from: string }) => {
+          console.log('accept icecandidate', data.signal)
+          await peer.addIceCandidate(data.signal)
+        }
+      )
+
+      peer.ontrack = (e) => {
+        ;(userVideo.current as HTMLVideoElement).srcObject = e.streams[0]
+      }
+    })
+  }, [peer, roomName, router])
+
+  const handleButton = () => {
+    peer.close()
+    router.push('/')
+  }
 
   return (
     <div>
@@ -139,6 +166,13 @@ export default function Calls() {
             ref={userVideo}
           />
         </div>
+        <Button
+          variant="gradient"
+          gradient={{ from: 'indigo', to: 'cyan' }}
+          onClick={handleButton}
+        >
+          退出
+        </Button>
       </Container>
     </div>
   )
