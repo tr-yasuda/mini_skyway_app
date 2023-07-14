@@ -21,7 +21,6 @@ export default function Calls() {
     // クエリなかったらトップページに戻す
     if (!roomName) {
       router.push('/')
-      peer.close()
     }
     // メディア情報取得
     navigator.mediaDevices
@@ -136,10 +135,11 @@ export default function Calls() {
         ;(userVideo.current as HTMLVideoElement).srcObject = e.streams[0]
       }
     })
+
+    return peer.close()
   }, [peer, roomName, router])
 
   const handleButton = () => {
-    peer.close()
     router.push('/')
   }
 
