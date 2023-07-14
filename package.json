@@ -1,0 +1,40 @@
+{
+  "name": "mini_skyway_app",
+  "version": "0.1.0",
+  "private": true,
+  "author": "Yoshitada Yasuda",
+  "license": "MIT",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@emotion/react": "^11.11.1",
+    "@emotion/server": "^11.11.0",
+    "@mantine/core": "^6.0.16",
+    "@mantine/hooks": "^6.0.16",
+    "@mantine/next": "^6.0.16",
+    "@types/node": "20.4.1",
+    "@types/react": "18.2.14",
+    "@types/react-dom": "18.2.6",
+    "autoprefixer": "10.4.14",
+    "eslint": "8.44.0",
+    "eslint-config-next": "13.4.9",
+    "eslint-config-prettier": "^8.8.0",
+    "next": "13.4.9",
+    "postcss": "8.4.25",
+    "react": "18.2.0",
+    "react-dom": "18.2.0",
+    "simple-peer": "^9.11.1",
+    "socket.io-client": "^4.7.1",
+    "tabler-icons-react": "^1.56.0",
+    "tailwindcss": "3.3.2",
+    "typescript": "5.1.6",
+    "webpack-node-externals": "^3.0.0"
+  },
+  "devDependencies": {
+    "@types/simple-peer": "^9.11.5"
+  }
+}
