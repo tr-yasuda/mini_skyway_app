@@ -10,7 +10,7 @@ const io = new Server(server, {
   }
 })
 
-const PORT = 5500
+const PORT = 8080
 
 // communication with client
 io.on('connection', (socket) => {
